@@ -44,8 +44,8 @@ main(int argc, char **argv)
         recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) &clientAddress, &addrLength);
         if(recvlen > 0){
             switch(getOpcode(messageBuffer)){
-                case '1':
-                    if (filenameCheck(fileName)==1){
+                case '1': //RRQ
+                    if (filenameCheck(getFileNameFromRequest(messageBuffer))==1){
                         //Filename contains forbidden chars
                         return 1;
                     }
@@ -53,10 +53,23 @@ main(int argc, char **argv)
                     myFile = fopen(fileName, "r");
                     res = fread(messageBuffer+2, 1, 25, myFile);
                     break;
-                case '2':
+                case '2': //WRQ
+                    if (filenameCheck(getFileNameFromRequest(messageBuffer))){
+                        //Filename contains forbidden chars
+                        return 1;
+                    }
                     messageBuffer[1] = 'B';
                     break;
-                case '3':
+                case '3': //DATA
+                    //Send ACK of data received
+                    //Write data received to buffer/file
+                    break;
+                case '4': //ACK
+                    //
+                    break;
+                case '5': //ERROR
+                    break;
+                default:
                     break;
             }
             
@@ -71,14 +84,14 @@ main(int argc, char **argv)
 
 /**
  * Checks the filename for forbidden characters that may be used for a path.
- * @param str Filename to check
- * @return 0 if OK, 1 if str contains forbidden chars.
+ * @param message Filename to check
+ * @return 0 if OK, 1 if message contains forbidden chars.
  */
-int filenameCheck(char str[]){
+int filenameCheck(char message[]){
     char forbiddenChars[11] = {'/', '\\', ':', '*', '\?','\"','<','>','|','~','\0'};
 
     for (int i = 0; i < strlen(forbiddenChars); i++)
-        if (strchr(str, forbiddenChars[i]) != NULL){
+        if (strchr(message, forbiddenChars[i]) != NULL){
             return 1;
         }
     return 0;
@@ -98,7 +111,7 @@ int nextSequenceNum(int currentSequenceNum){
 
 /**
  * Gets the opcode from the message header.
- * @return 01 for RRQ, 02 for WRQ, 03 for DATA, 04 for ACK, 05 for ERROR
+ * @return 1 for RRQ, 2 for WRQ, 3 for DATA, 4 for ACK, 5 for ERROR
  */
 char getOpcode(char message[]){
     return message[1];
