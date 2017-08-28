@@ -116,3 +116,16 @@ int nextSequenceNum(int currentSequenceNum){
 char getOpcode(char message[]){
     return message[1];
 }
+
+/**
+ * Gets the filename from the message header of a RRQ or WRQ
+ * @param message The message received
+ * @return Filename from WRQ/RRQ header.
+ */
+char* getFileNameFromRequest(char message[]){
+    char* filename;
+    char* filenameEndPtr = strchr(message, '/0'); //First null char is end of filename
+    int filenameEnd = filenameEndPtr-message+1;
+    strncpy(filename, message+2, filenameEnd-2);
+    return filename;
+}
