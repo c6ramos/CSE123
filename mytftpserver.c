@@ -13,6 +13,14 @@ void receiveHandler(int fd, char* buf, struct sockaddr* senderAddress, socklen_t
 //Send ACK function
 void sendACK(int fd, struct sockaddr* destAddress, socklen_t * addrLength);
 
+char getOpcode(char message[]);
+
+int filenameCheck(char message[]);
+
+int nextSequenceNum(int currentSequenceNum);
+
+char* getFileNameFromRequest(char message[]);
+
 int
 main(int argc, char **argv)
 {    
@@ -67,10 +75,10 @@ main(int argc, char **argv)
                     myFile = fopen("server/myFile2.txt", "w");  //Arbitrary name need to replace
                     
                     // ACK to signal ready to receive
-                    sendACK(fd, (struct sockaddr*)&clientAddress, &addrLength);
+                    sendACK(socketNumber, (struct sockaddr*)&clientAddress, &addrLength);
                     
                     //Handles transmitted data
-                    receiveHandler(fd, messageBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
+                    receiveHandler(socketNumber, messageBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     
                     //All data written to file ready to close
                     fclose(myFile);
@@ -118,7 +126,7 @@ int filenameCheck(char message[]){
  * @return 0 if sequence at max. Else, next number in sequence
  */
 int nextSequenceNum(int currentSequenceNum){
-    if (currentSequenceNum == int(SEQUENCEMAX)){
+    if (currentSequenceNum == (int)(SEQUENCEMAX)){
         return 0;
     }
     return currentSequenceNum+1;
@@ -139,7 +147,7 @@ char getOpcode(char message[]){
  */
 char* getFileNameFromRequest(char message[]){
     char* filename;
-    char* filenameEndPtr = strchr(message, '/0'); //First null char is end of filename
+    char* filenameEndPtr = strchr(message, '\0'); //First null char is end of filename
     int filenameEnd = filenameEndPtr-message+1;
     strncpy(filename, message+2, filenameEnd-2);
     return filename;
