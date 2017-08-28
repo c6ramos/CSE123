@@ -7,6 +7,8 @@
 #define SEQUENCEMAX 1
 #define PORT 61003
 #define MAXDATASIZE 512
+#define TIMEOUT 1000
+#define RETRYMAX 10
 
 //Receive handler
 void receiveHandler(int fd, char* buf, struct sockaddr* senderAddress, socklen_t * addrLength, FILE * myFile );
@@ -54,21 +56,23 @@ main(int argc, char **argv)
     
     /* Setup complete ready to receive data */
     for(;;){
+        recvlen = 0;
         recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) &clientAddress, &addrLength);
         if(recvlen > 0){
             switch(getOpcode(messageBuffer)){
                 case '1': //RRQ
                     if (filenameCheck(getFileNameFromRequest(messageBuffer))==1){
-                        //Filename contains forbidden chars
+                        //TODO: Filename contains forbidden chars
                         return 1;
                     }
                     sprintf(fileName, "server/%s.txt", (messageBuffer+2));
                     myFile = fopen(fileName, "r");
-                    res = fread(messageBuffer+2, 1, 25, myFile);
+                    rrqHandler(socketNumber, messageBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
+                    fclose(myFile);
                     break;
                 case '2': //WRQ
                     if (filenameCheck(getFileNameFromRequest(messageBuffer))){
-                        //Filename contains forbidden chars
+                        //TODO: Filename contains forbidden chars
                         return 1;
                     }
                     
@@ -78,22 +82,14 @@ main(int argc, char **argv)
                     sendACK(socketNumber, (struct sockaddr*)&clientAddress, &addrLength);
                     
                     //Handles transmitted data
-                    receiveHandler(socketNumber, messageBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
+                    wrqHandler(socketNumber, messageBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     
                     //All data written to file ready to close
                     fclose(myFile);
                     
                     break;
-                case '3': //DATA
-                    //Send ACK of data received
-                    //Write data received to buffer/file
-                    break;
-                case '4': //ACK
-                    //
-                    break;
-                case '5': //ERROR
-                    break;
                 default:
+                    //TODO: Bad Request, needs to start session with RRQ/WRQ
                     break;
             }
             
@@ -141,6 +137,14 @@ char getOpcode(char message[]){
 }
 
 /**
+ * Sets the opcode from the message header.
+ * 1 for RRQ, 2 for WRQ, 3 for DATA, 4 for ACK, 5 for ERROR
+ */
+void setOpcode(char message[], char opcode){
+    message[1] = opcode;
+}
+
+/**
  * Gets the filename from the message header of a RRQ or WRQ
  * @param message The message received
  * @return Filename from WRQ/RRQ header.
@@ -153,37 +157,79 @@ char* getFileNameFromRequest(char message[]){
     return filename;
 }
 
-void receiveHandler(int fd, char* buf, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
-    
+void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
     int recvlen;
-    char fileBuf[512];
-    
+    char fileBuf[MAXDATASIZE];
+
     for(;;){
-        recvlen = recvfrom(fd, buf, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
+        recvlen = 0;
+        recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
         if(recvlen > 0){
-            switch(buf[1]){
-                //Data tag
-                case '3':
-                    memcpy(fileBuf, buf+4, recvlen-4);
+            switch(getOpcode(messageBuffer)){
+                case '3': //Data tag
+                    memcpy(fileBuf, messageBuffer+4, recvlen-4);
                     fwrite(fileBuf, 1, recvlen-4, myFile);
-                    sendACK(fd, senderAddress, addrLength);
+                    sendACK(socketNumber, senderAddress, addrLength);
                     break;
-                
+                default:
+                    //TODO: Bad response, should be sending me some data
+                    break;
             }
-            
         }
         //Change to 516 once block # added
-        if(recvlen < 516 && recvlen > 0 && buf[1] == '3')
+        if(recvlen < MAXDATASIZE && recvlen > 0 && messageBuffer[1] == '3')
             break;
     }
-    
+}
+
+void rrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
+    char fileBuf[MAXDATASIZE];
+    int recvlen, retry, acked;
+    int res = MAXDATASIZE;
+    time_t start;
+
+    while(res == MAXDATASIZE) { //Send Data
+        res = fread(messageBuffer + 2, 1, MAXDATASIZE, myFile);
+        if (res < 1) {
+            //TODO: EOF and no more data
+            break;
+        }
+        retry = 0;
+        while (retry < RETRYMAX) { //Retry sending 10 times
+            setOpcode(messageBuffer, '3'); //Sending DATA packets
+            sendto(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) &senderAddress, addrLength);
+            start = clock();   //Start timer
+            acked = 0;
+            while (acked == 0) { //Wait for ACK for timeout seconds
+                recvlen = 0;
+                recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
+                if (recvlen > 0) {
+                    switch (getOpcode(messageBuffer)) {
+                        case '4': //ACK tag
+                            //TODO: Need to check for correct block#
+                            acked = 1;
+                            retry = RETRYMAX; //Break out of retry loop
+                            break;
+                        default:
+                            //TODO: Bad response, should be ACK tag
+                            break;
+                    }
+                }
+                if (end - clock() > TIMEOUT) { //If wait for ACK timeouts
+                    retry++; //Break out of loop, retry sending data
+                    break;
+                }
+            }
+        }
+    }
+    //TODO: Finished sending Data, session end notice?
 }
 
 void sendACK(int fd, struct sockaddr* destAddress, socklen_t * addrLength){
     char messageBuffer[2048];
-    messageBuffer[1] = '4';
-    //Need to add block #
+    setOpcode( messageBuffer, '4'); //Sending ACK packets
+    //TODO: Need to add block #
     
-    //Need to error check result of sendto
+    //TODO: Need to error check result of sendto
     sendto(fd, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
 }
