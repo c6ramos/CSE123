@@ -59,3 +59,13 @@ int main(void)
     
     return 0;
 }
+
+int filenameCheck(char str[]){
+    char forbiddenChars[11] = {'/', '\\', ':', '*', '\?','\"','<','>','|','~','\0'};
+
+    for (int i = 0; i < strlen(forbiddenChars); i++)
+        if (strchr(str, forbiddenChars[i]) != NULL){
+            return 1;
+        }
+    return 0;
+}

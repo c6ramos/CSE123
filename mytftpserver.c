@@ -41,7 +41,10 @@ main(int argc, char **argv)
         if(recvlen > 0){
             switch(buf[1]){
                 case '1':
-                    /* Need to check name and make sure there is no path */
+                    if (filenameCheck(fileName)==1){
+                        //Filename contains forbidden chars
+                        return 1;
+                    }
                     sprintf(fileName, "server/%s.txt", (buf+2));
                     myFile = fopen(fileName, "r");
                     res = fread(buf+2, 1, 25, myFile);
@@ -59,5 +62,15 @@ main(int argc, char **argv)
         }
     }
     
+    return 0;
+}
+
+int filenameCheck(char str[]){
+    char forbiddenChars[11] = {'/', '\\', ':', '*', '\?','\"','<','>','|','~','\0'};
+
+    for (int i = 0; i < strlen(forbiddenChars); i++)
+        if (strchr(str, forbiddenChars[i]) != NULL){
+            return 1;
+        }
     return 0;
 }
