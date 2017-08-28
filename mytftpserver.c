@@ -100,6 +100,6 @@ int nextSequenceNum(int currentSequenceNum){
  * Gets the opcode from the message header.
  * @return 01 for RRQ, 02 for WRQ, 03 for DATA, 04 for ACK, 05 for ERROR
  */
-int getOpcode(char message[]){
+char getOpcode(char message[]){
     return message[1];
 }
