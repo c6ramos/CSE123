@@ -1,0 +1,4 @@
+This should show everything.
+Line 2
+Line 3
+END OF FILE
