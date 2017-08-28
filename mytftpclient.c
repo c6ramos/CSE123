@@ -9,6 +9,18 @@
 #define PORT 61003
 #define MAXDATASIZE 512
 
+//Receive handler
+void receiveHandler(int fd, char* buf, struct sockaddr* senderAddress, socklen_t * addrLength, FILE * myFile );
+//Send ACK function
+void sendACK(int fd, struct sockaddr* destAddress, socklen_t * addrLength);
+
+char getOpcode(char message[]);
+
+int filenameCheck(char message[]);
+
+int nextSequenceNum(int currentSequenceNum);
+
+
 int main(void)
 {
     
@@ -47,7 +59,7 @@ int main(void)
     
     /* Now can send request */
     x = sendto(socketNumber, messageBuffer, strlen(messageBuffer), 0, (struct sockaddr*)&serverAddress, addrLength);
-    printf("Message sent to server\n");
+    printf("Request sent to server\n");
     
     
     
@@ -84,7 +96,7 @@ int filenameCheck(char message[]){
  * @return 0 if sequence at max. Else, next number in sequence
  */
 int nextSequenceNum(int currentSequenceNum){
-    if (currentSequenceNum == int(SEQUENCEMAX)){
+    if (currentSequenceNum == (int)(SEQUENCEMAX)){
         return 0;
     }
     return currentSequenceNum+1;
@@ -96,4 +108,39 @@ int nextSequenceNum(int currentSequenceNum){
  */
 char getOpcode(char message[]){
     return message[1];
+}
+
+void receiveHandler(int fd, char* buf, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
+    
+    int recvlen;
+    char fileBuf[512];
+    
+    for(;;){
+        recvlen = recvfrom(fd, buf, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
+        if(recvlen > 0){
+            switch(buf[1]){
+                //Data tag
+                case '3':
+                    memcpy(fileBuf, buf+4, recvlen-4);
+                    fwrite(fileBuf, 1, recvlen-4, myFile);
+                    sendACK(fd, senderAddress, addrLength);
+                    break;
+                
+            }
+            
+        }
+        //Change to 516 once block # added
+        if(recvlen < 516 && recvlen > 0 && buf[1] == '3')
+            break;
+    }
+    
+}
+
+void sendACK(int fd, struct sockaddr* destAddress, socklen_t * addrLength){
+    char messageBuffer[2048];
+    messageBuffer[1] = '4';
+    //Need to add block #
+    
+    //Need to error check result of sendto
+    sendto(fd, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
 }
