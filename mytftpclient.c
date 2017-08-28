@@ -4,19 +4,18 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <netdb.h>
-//docker run --rm -it -v c:/Users/droid/dockerProject:/home/ prodromou87/ucsd_cse123
 
 int main(void)
 {
     
     char fileName[64];
     
-    printf("Hello, world!\n");
     struct sockaddr_in serverAddress;
     struct hostent *hp;
     int fd, x, recvlen;
     socklen_t addrLength = sizeof(serverAddress);
     char buf[2048];
+    /* Test buffer data */
     buf[0] = 'H';
     buf[1] = '1';
     buf[2] = 'l';
