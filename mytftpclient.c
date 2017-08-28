@@ -5,6 +5,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
+#define SEQUENCEMAX 1
+#define PORT 61003
+#define MAXDATASIZE 512
+
 int main(void)
 {
     
@@ -12,28 +16,28 @@ int main(void)
     
     struct sockaddr_in serverAddress;
     struct hostent *hp;
-    int fd, x, recvlen;
+    int socketNumber, x, recvlen;
     socklen_t addrLength = sizeof(serverAddress);
-    char buf[2048];
+    char messageBuffer[2048];
     /* Test buffer data */
-    buf[0] = 'H';
-    buf[1] = '1';
-    buf[2] = 'l';
-    buf[3] = 'l';
-    buf[4] = '\0';
+    messageBuffer[0] = 'H';
+    messageBuffer[1] = '1';
+    messageBuffer[2] = 'l';
+    messageBuffer[3] = 'l';
+    messageBuffer[4] = '\0';
     
     /* Create Socket */
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    socketNumber = socket(AF_INET, SOCK_DGRAM, 0);
     
     /* Socket Error Check */
-    if(fd < 0){
+    if(socketNumber < 0){
         perror("Client: Cannot create socket");
         exit(0);
     }
     /* Fill in the server's sockaddr struct */
     memset((char *) &serverAddress, 0, sizeof(serverAddress));
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(61003);
+    serverAddress.sin_port = htons(PORT);
     
     /* Get server address (Need to check validity)*/
     hp = gethostbyname("localhost");
@@ -42,16 +46,16 @@ int main(void)
     memcpy((void *)&serverAddress.sin_addr, hp->h_addr_list[0], hp->h_length);
     
     /* Now can send request */
-    x = sendto(fd, buf, strlen(buf), 0, (struct sockaddr*)&serverAddress, addrLength);
+    x = sendto(socketNumber, messageBuffer, strlen(messageBuffer), 0, (struct sockaddr*)&serverAddress, addrLength);
     printf("Message sent to server\n");
     
     
     
     for(;;){
-        recvlen = recvfrom(fd, buf, 2048, 0, (struct sockaddr*)&serverAddress, &addrLength);
+        recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)&serverAddress, &addrLength);
         if(recvlen > 0){
-            buf[recvlen] = '\0';
-            printf("Message from server: %s\n", buf);
+            messageBuffer[recvlen] = '\0';
+            printf("Message from server: %s\n", messageBuffer);
             
         }
     }
@@ -59,6 +63,11 @@ int main(void)
     return 0;
 }
 
+/**
+ * Checks the filename for forbidden characters that may be used for a path.
+ * @param str Filename to check
+ * @return 0 if OK, 1 if str contains forbidden chars.
+ */
 int filenameCheck(char str[]){
     char forbiddenChars[11] = {'/', '\\', ':', '*', '\?','\"','<','>','|','~','\0'};
 
@@ -67,4 +76,24 @@ int filenameCheck(char str[]){
             return 1;
         }
     return 0;
+}
+
+/**
+ * Returns the next number in packet sequence. Returns 0 if at max sequence number
+ * @param currentSequenceNum Current sequence number
+ * @return 0 if sequence at max. Else, next number in sequence
+ */
+int nextSequenceNum(int currentSequenceNum){
+    if (currentSequenceNum == int(SEQUENCEMAX)){
+        return 0;
+    }
+    return currentSequenceNum+1;
+}
+
+/**
+ * Gets the opcode from the message header.
+ * @return 01 for RRQ, 02 for WRQ, 03 for DATA, 04 for ACK, 05 for ERROR
+ */
+int getOpcode(char message[]){
+    return message[1];
 }
