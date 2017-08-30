@@ -105,6 +105,7 @@ int main(int argc, char **argv)
             myFile = fopen(fileName, "r");
             rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&serverAddress, &addrLength, myFile);
             fclose(myFile);
+            printf("C: Write Request Complete\n");
         }
 
         //If request was a read
@@ -127,6 +128,8 @@ int main(int argc, char **argv)
 
             //All data written to file ready to close
             fclose(myFile);
+            
+            printf("C: Read Request Complete\n");
         }
 
     }
@@ -196,7 +199,9 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     start = clock();
                     memcpy(fileBuf, messageBuffer+4, recvlen-4);
                     fwrite(fileBuf, 1, recvlen-4, myFile);
+                    printf("C: Received Block #0 of Data\n");
                     sendACK(socketNumber, senderAddress, addrLength);
+                    printf("C: Sending ACK #0\n");
                     break;
                 default:
                     //TODO: Bad response, should be sending me some data
@@ -211,6 +216,7 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
             sendACK(socketNumber, senderAddress, addrLength);
             retry++;
             start = clock();
+            printf("C: Resending ACK #0\n");
         }
     }
     
@@ -234,6 +240,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
         while (retry < RETRYMAX) { //Retry sending 10 times
             setOpcode(sendBuffer, '3'); //Sending DATA packets
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
+            printf("C: Sending block #0 of data\n");
             start = clock();   //Start timer
             acked = 0;
             while (acked == 0) { //Wait for ACK for timeout seconds
@@ -245,6 +252,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                             //TODO: Need to check for correct block#
                             acked = 1;
                             retry = RETRYMAX; //Break out of retry loop
+                            printf("C: Received ACK #0\n");
                             break;
                         default:
                             //TODO: Bad response, should be ACK tag

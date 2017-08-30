@@ -64,7 +64,7 @@ main(int argc, char **argv)
         if(recvlen > 0){
             switch(getOpcode(receiveBuffer)){
                 case '1': //RRQ
-                    printf("S: Read Request Received\n");
+                    printf("S: Received [Read Request]\n");
                     if (filenameCheck(getFileNameFromRequest(receiveBuffer+2))==1){
                         //TODO: Filename contains forbidden chars
                         return 1;
@@ -73,9 +73,10 @@ main(int argc, char **argv)
                     myFile = fopen(fileName, "r");
                     rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     fclose(myFile);
+                    printf("S: File Read Complete\n");
                     break;
                 case '2': //WRQ
-                    printf("S: Write Request Received\n");
+                    printf("S: Received [Write Request]\n");
                     if (filenameCheck(getFileNameFromRequest(receiveBuffer+2)) == 1){
                         //TODO: Filename contains forbidden chars
                         return 1;
@@ -94,9 +95,11 @@ main(int argc, char **argv)
                     //All data written to file ready to close
                     fclose(myFile);
                     
+                    printf("S: File Write Complete\n");
+                    
                     break;
                 default:
-                    printf("S: Unknown Request Received\n");
+                    printf("S: Received [Unknown Request]\n");
                     //TODO: Bad Request, needs to start session with RRQ/WRQ
                     break;
             }
@@ -185,7 +188,9 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     start = clock();
                     memcpy(fileBuf, messageBuffer+4, recvlen-4);
                     fwrite(fileBuf, 1, recvlen-4, myFile);
+                    printf("S: Received Block #0 of Data\n");
                     sendACK(socketNumber, senderAddress, addrLength);
+                    printf("S: Sending ACK #0\n");
                     break;
                 default:
                     //TODO: Bad response, should be sending me some data
@@ -202,26 +207,6 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
             start = clock();
         }
     }
-    /*
-    for(;;){
-        recvlen = 0;
-        recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
-        if(recvlen > 0){
-            switch(getOpcode(messageBuffer)){
-                case '3': //Data tag
-                    memcpy(fileBuf, messageBuffer+4, recvlen-4);
-                    fwrite(fileBuf, 1, recvlen-4, myFile);
-                    sendACK(socketNumber, senderAddress, addrLength);
-                    break;
-                default:
-                    //TODO: Bad response, should be sending me some data
-                    break;
-            }
-        }
-        //Change to 516 once block # added
-        if(recvlen < (MAXDATASIZE + 4) && messageBuffer[1] == '3')
-            break;
-    }*/
 }
 
 void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
@@ -242,6 +227,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
         while (retry < RETRYMAX) { //Retry sending 10 times
             setOpcode(sendBuffer, '3'); //Sending DATA packets
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
+            printf("S: Sending block #0 of data\n");
             start = clock();   //Start timer
             acked = 0;
             while (acked == 0) { //Wait for ACK for timeout seconds
@@ -253,6 +239,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                             //TODO: Need to check for correct block#
                             acked = 1;
                             retry = RETRYMAX; //Break out of retry loop
+                            printf("S: Received ACK #0\n");
                             break;
                         default:
                             //TODO: Bad response, should be ACK tag
