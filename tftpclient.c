@@ -18,9 +18,15 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
 void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile );
 
 //Send ACK function
-void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength);
+void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength, char sequenceNumber);
 
 char getOpcode(char message[]);
+
+void setOpcode(char message[], char opcode);
+
+char getSequenceNumber(char message[]);
+
+void setSequenceNumber (char message[], char seqNum);
 
 int filenameCheck(char message[]);
 
@@ -87,6 +93,10 @@ int main(int argc, char **argv)
                 recvlen = 0;
                 recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr*)&serverAddress, &addrLength);
                 if(recvlen > 0){
+                    if (getSequenceNumber(receiveBuffer) != '0'){
+                        //TODO: Initial ACK must be block#0
+                        continue;
+                    }
                     switch(getOpcode(receiveBuffer)){
                         case '4': //ACK received
                             requestReceived = 1;
@@ -164,7 +174,20 @@ int nextSequenceNum(int currentSequenceNum){
 }
 
 /**
+ * Returns the previous number in packet sequence. Returns SEQUENCEMAX if at 0
+ * @param currentSequenceNum Current sequence number
+ * @return SEQUENCEMAX if sequence at 0. Else, previous number in sequence
+ */
+int prevSequenceNum(int currentSequenceNum){
+    if (currentSequenceNum == 0){
+        return (int)SEQUENCEMAX;
+    }
+    return currentSequenceNum-1;
+}
+
+/**
  * Gets the opcode from the message header.
+ * @param message The Message packet to read the opcode from
  * @return 1 for RRQ, 2 for WRQ, 3 for DATA, 4 for ACK, 5 for ERROR
  */
 char getOpcode(char message[]){
@@ -173,15 +196,36 @@ char getOpcode(char message[]){
 
 /**
  * Sets the opcode from the message header.
- * 1 for RRQ, 2 for WRQ, 3 for DATA, 4 for ACK, 5 for ERROR
+ * @param message The message packet to set the opcode for
+ * @param opcode char: 1 for RRQ, 2 for WRQ, 3 for DATA, 4 for ACK, 5 for ERROR
  */
 void setOpcode(char message[], char opcode){
     message[0] = '0';
     message[1] = opcode;
 }
 
+/**
+ * Gets the sequence/block number from the message header.
+ * @param message The Message packet to read the opcode from
+ * @return
+ */
+char getSequenceNumber (char message[]){
+    return message [3];
+}
+
+/**
+ * Sets the sequence/block number of the message packet.
+ * @param message The Message packet to set the sequence number for
+ * @param seqNum The sequence number to set the packet to
+ */
+void setSequenceNumber (char message[], char seqNum){
+    message[2] = '0';
+    message[3] = seqNum;
+}
+
+
 void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
-    int recvlen, retry;
+    int recvlen, retry, currSequenceNumber = 0;
     time_t start;
     
     char fileBuf[MAXDATASIZE];
@@ -193,15 +237,21 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
         recvlen = 0;
         recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
         if(recvlen > 0){
+            if (getSequenceNumber(messageBuffer) != currSequenceNumber){
+                //TODO: Wrong sequence Number
+                //Keep listening
+                continue;
+            }
             switch(getOpcode(messageBuffer)){
-                case '3': //Data tag
+                case '3': //Receiving DATA
                     retry = 0;
                     start = clock();
                     memcpy(fileBuf, messageBuffer+4, recvlen-4);
                     fwrite(fileBuf, 1, recvlen-4, myFile);
-                    printf("C: Received Block #0 of Data\n");
-                    sendACK(socketNumber, senderAddress, addrLength);
-                    printf("C: Sending ACK #0\n");
+                    fprintf("C: Received Block #%d of Data\n", currSequenceNumber);
+                    sendACK(socketNumber, senderAddress, addrLength, (char)currSequenceNumber);
+                    fprintf("C: Sending ACK #%d\n", currSequenceNumber);
+                    currSequenceNumber = nextSequenceNum( currSequenceNumber);
                     break;
                 default:
                     //TODO: Bad response, should be sending me some data
@@ -213,10 +263,10 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
         if(recvlen < (MAXDATASIZE + 4) && messageBuffer[1] == '3')
             break;
         if(clock() - start > TIMEOUT){
-            sendACK(socketNumber, senderAddress, addrLength);
+            sendACK(socketNumber, senderAddress, addrLength, (char)prevSequenceNum(currSequenceNumber));
             retry++;
             start = clock();
-            printf("C: Resending ACK #0\n");
+            fprintf("C: Resending ACK #%d\n", prevSequenceNum(currSequenceNumber));
         }
     }
     
@@ -224,13 +274,14 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
 
 void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
     char fileBuf[MAXDATASIZE];
-    int recvlen, retry, acked, x;
+    int recvlen, retry, acked, x = 0;
+    int currSequenceNumber = 1;
     int res = MAXDATASIZE;
     time_t start;
     while(res == MAXDATASIZE) { //Send Data
         //Temporary to fill in packet # bits
-        sendBuffer[2] = '0';
-        sendBuffer[3] = '0';
+//        sendBuffer[2] = '0';
+//        sendBuffer[3] = '0';
         res = fread(sendBuffer + 4, 1, MAXDATASIZE, myFile);
         if (res < 1) {
             //TODO: EOF and no more data
@@ -239,20 +290,27 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
         retry = 0;
         while (retry < RETRYMAX) { //Retry sending 10 times
             setOpcode(sendBuffer, '3'); //Sending DATA packets
+            setSequenceNumber(sendBuffer, (char)currSequenceNumber);
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
-            printf("C: Sending block #0 of data\n");
+            printf("C: Sending block #%d of data\n", currSequenceNumber);
             start = clock();   //Start timer
             acked = 0;
             while (acked == 0) { //Wait for ACK for timeout seconds
                 recvlen = 0;
                 recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
                 if (recvlen > 0) {
+                    if (getSequenceNumber(receiveBuffer) != currSequenceNumber){
+                        //TODO: ACK block# should be same as the one in send DATA
+                        //Keep waiting for ACK block
+                        continue;
+                    }
                     switch (getOpcode(receiveBuffer)) {
                         case '4': //ACK tag
                             //TODO: Need to check for correct block#
                             acked = 1;
                             retry = RETRYMAX; //Break out of retry loop
-                            printf("C: Received ACK #0\n");
+                            fprintf("C: Received ACK #%d\n", currSequenceNumber);
+                            currSequenceNumber = nextSequenceNum(currSequenceNumber);
                             break;
                         default:
                             //TODO: Bad response, should be ACK tag
@@ -270,11 +328,12 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
     //TODO: Finished sending Data, session end notice?
 }
 
-void sendACK(int fd, struct sockaddr* destAddress, socklen_t * addrLength){
+void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength, char sequenceNumber){
     char messageBuffer[2048];
     messageBuffer[1] = '4';
     //Need to add block #
+    setSequenceNumber(messageBuffer, sequenceNumber);
     
     //Need to error check result of sendto
-    sendto(fd, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
+    sendto(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
 }
