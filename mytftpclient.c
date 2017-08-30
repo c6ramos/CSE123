@@ -71,7 +71,7 @@ int main(int argc, char **argv)
         //Check if request is a write
         if(strcmp( argv[1], "-w") == 0){
             /* Now can send request */
-            printf("Request sent to server213\n");
+            printf("Request sent to server\n");
             sprintf(fileName, "client/%s", argv[2]);
             
             //Set message opcode
@@ -118,7 +118,6 @@ int main(int argc, char **argv)
             setOpcode(sendBuffer, '1');
             //Set filename in buffer
             strcpy(sendBuffer+2, argv[2]);
-            printf("File: %s\n", sendBuffer);
             /* Now can send request */
             x = sendto(socketNumber, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr*)&serverAddress, addrLength);
             printf("Read request sent to server\n");
@@ -129,15 +128,7 @@ int main(int argc, char **argv)
             //All data written to file ready to close
             fclose(myFile);
         }
-        //Used for testing
-        /*for(;;){
-            recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)&serverAddress, &addrLength);
-            if(recvlen > 0){
-                messageBuffer[recvlen] = '\0';
-                printf("Message from server: %s\n", messageBuffer);
 
-            }
-        }*/
     }
     return 0;
 }
@@ -194,16 +185,11 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
     //Need to also check packet # for repeats
     retry = 0;
     start = clock();   //Start timer
-    printf("Inside wrq %d\n", (int)*addrLength);
-    recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
-    printf("Inside wr32q\n");
   //  end = start + TIMEOUT;
-    if (retry < RETRYMAX){
-        printf("Inside 2\n");
+    while (retry < RETRYMAX){
+        recvlen = 0;
         recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
-        printf("Inside 22\n");
         if(recvlen > 0){
-            printf("Response\n");
             switch(getOpcode(messageBuffer)){
                 case '3': //Data tag
                     retry = 0;
@@ -219,48 +205,26 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
         }
         
         //Change to 516 once block # added
-        if(recvlen < (MAXDATASIZE + 4) && messageBuffer[1] == '3'){
-            printf("break\n");
-        //    break;
-        }
+        if(recvlen < (MAXDATASIZE + 4) && messageBuffer[1] == '3')
+            break;
         if(clock() - start > TIMEOUT){
-            printf("Retry\n");
             sendACK(socketNumber, senderAddress, addrLength);
             retry++;
             start = clock();
         }
-        printf("Nothing\n");
     }
-    printf("End of wrq\n");
-    /*
-    for(;;){
-        recvlen = 0;
-        recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
-        if(recvlen > 0){
-            switch(getOpcode(messageBuffer)){
-                case '3': //Data tag
-                    memcpy(fileBuf, messageBuffer+4, recvlen-4);
-                    fwrite(fileBuf, 1, recvlen-4, myFile);
-                    sendACK(socketNumber, senderAddress, addrLength);
-                    break;
-                default:
-                    //TODO: Bad response, should be sending me some data
-                    break;
-            }
-        }
-        //Change to 516 once block # added
-        if(recvlen < (MAXDATASIZE + 4) && messageBuffer[1] == '3')
-            break;
-    }*/
+    
 }
 
 void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
     char fileBuf[MAXDATASIZE];
-    int recvlen, retry, acked;
+    int recvlen, retry, acked, x;
     int res = MAXDATASIZE;
     time_t start;
-
     while(res == MAXDATASIZE) { //Send Data
+        //Temporary to fill in packet # bits
+        sendBuffer[2] = '0';
+        sendBuffer[3] = '0';
         res = fread(sendBuffer + 4, 1, MAXDATASIZE, myFile);
         if (res < 1) {
             //TODO: EOF and no more data
@@ -269,7 +233,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
         retry = 0;
         while (retry < RETRYMAX) { //Retry sending 10 times
             setOpcode(sendBuffer, '3'); //Sending DATA packets
-            sendto(socketNumber, sendBuffer, 2048, 0, (struct sockaddr *) &senderAddress, *addrLength);
+            x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
             start = clock();   //Start timer
             acked = 0;
             while (acked == 0) { //Wait for ACK for timeout seconds
@@ -297,7 +261,6 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
     }
     //TODO: Finished sending Data, session end notice?
 }
-
 
 void sendACK(int fd, struct sockaddr* destAddress, socklen_t * addrLength){
     char messageBuffer[2048];

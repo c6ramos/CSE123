@@ -60,27 +60,23 @@ main(int argc, char **argv)
     
     /* Setup complete ready to receive data */
     for(;;){
-        printf("S:Inside 22\n");
         recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) &clientAddress, &addrLength);
-        printf("S:Inside %c\n", receiveBuffer[1]);
         if(recvlen > 0){
-            printf("S:Inothing\n");
             switch(getOpcode(receiveBuffer)){
                 case '1': //RRQ
-                    printf("S:Inside r1\n");
+                    printf("S: Read Request Received\n");
                     if (filenameCheck(getFileNameFromRequest(receiveBuffer+2))==1){
                         //TODO: Filename contains forbidden chars
                         return 1;
                     }
-                    printf("S:Inside r2\n");
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
                     myFile = fopen(fileName, "r");
                     rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     fclose(myFile);
                     break;
                 case '2': //WRQ
-                    printf("S:Inside wrq1\n");
-                    if (filenameCheck(getFileNameFromRequest(receiveBuffer+2))){
+                    printf("S: Write Request Received\n");
+                    if (filenameCheck(getFileNameFromRequest(receiveBuffer+2)) == 1){
                         //TODO: Filename contains forbidden chars
                         return 1;
                     }
@@ -100,7 +96,7 @@ main(int argc, char **argv)
                     
                     break;
                 default:
-                    printf("S:Inside wrq211\n");
+                    printf("S: Unknown Request Received\n");
                     //TODO: Bad Request, needs to start session with RRQ/WRQ
                     break;
             }
@@ -108,7 +104,6 @@ main(int argc, char **argv)
             /*sendBuffer[25] = '\0';
             sendto(socketNumber, sendBuffer, 2048, 0, (struct sockaddr *) &clientAddress, addrLength);*/
         }
-        printf("S:Inothing1\n");
     }
     
     return 0;
@@ -231,11 +226,13 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
 
 void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile ){
     char fileBuf[MAXDATASIZE];
-    int recvlen, retry, acked;
+    int recvlen, retry, acked, x;
     int res = MAXDATASIZE;
     time_t start;
-printf("S:Insiderr\n");
     while(res == MAXDATASIZE) { //Send Data
+        //Temporary to fill in packet # bits
+        sendBuffer[2] = '0';
+        sendBuffer[3] = '0';
         res = fread(sendBuffer + 4, 1, MAXDATASIZE, myFile);
         if (res < 1) {
             //TODO: EOF and no more data
@@ -244,7 +241,7 @@ printf("S:Insiderr\n");
         retry = 0;
         while (retry < RETRYMAX) { //Retry sending 10 times
             setOpcode(sendBuffer, '3'); //Sending DATA packets
-            sendto(socketNumber, sendBuffer, 2048, 0, (struct sockaddr *) &senderAddress, *addrLength);
+            x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
             start = clock();   //Start timer
             acked = 0;
             while (acked == 0) { //Wait for ACK for timeout seconds
