@@ -309,7 +309,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                         //ACK block# should be same as the one in send DATA
                         //Keep waiting for ACK block
                         printf("C: Received packet with wrong sequence number.\n");
-                        printf("C: Sequence number was #%d, should be #%d.\n", getSequenceNumber(messageBuffer), currSequenceNumber);
+                        printf("C: Sequence number was #%d, should be #%d.\n", getSequenceNumber(receiveBuffer), currSequenceNumber);
                         continue;
                     }
                     switch (getOpcode(receiveBuffer)) {

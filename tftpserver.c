@@ -298,7 +298,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                     if (getSequenceNumber(receiveBuffer) != currSequenceNumber){
                         //Wrong sequence number
                         printf("S: Received packet with wrong sequence number.\n");
-                        printf("S: Sequence number was #%d, should be #%d.\n", getSequenceNumber(messageBuffer), currSequenceNumber);
+                        printf("S: Sequence number was #%d, should be #%d.\n", getSequenceNumber(receiveBuffer), currSequenceNumber);
                         continue;
                     };
                     switch (getOpcode(receiveBuffer)) {
