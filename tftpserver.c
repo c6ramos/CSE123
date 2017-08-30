@@ -242,9 +242,9 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     memcpy(fileBuf, messageBuffer+4, recvlen-4);
                     fwrite(fileBuf, 1, recvlen-4, myFile);
                     currSequenceNumber = (int)getSequenceNumber(messageBuffer);
-                    fprintf("S: Received Block #%d of Data\n", currSequenceNumber);
+                    printf("S: Received Block #%d of Data\n", currSequenceNumber);
                     sendACK(socketNumber, senderAddress, addrLength, (char)currSequenceNumber);
-                    fprintf("S: Sending ACK #%d\n", currSequenceNumber);
+                    printf("S: Sending ACK #%d\n", currSequenceNumber);
                     currSequenceNumber = nextSequenceNum(currSequenceNumber);
                     break;
                 default:
@@ -283,7 +283,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             setOpcode(sendBuffer, '3'); //Sending DATA packets
             setSequenceNumber(sendBuffer, (char)currSequenceNumber);
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
-            fprintf("S: Sending block #%d of data\n", currSequenceNumber);
+            printf("S: Sending block #%d of data\n", currSequenceNumber);
             start = clock();   //Start timer
             acked = 0;
             while (acked == 0) { //Wait for ACK for timeout seconds
@@ -299,7 +299,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                             acked = 1;
                             retry = RETRYMAX; //Break out of retry loop
                             currSequenceNumber = nextSequenceNum(currSequenceNumber);
-                            fprintf("S: Received ACK #%d\n", currSequenceNumber);
+                            printf("S: Received ACK #%d\n", currSequenceNumber);
                             break;
                         default:
                             //TODO: Bad response, should be ACK tag

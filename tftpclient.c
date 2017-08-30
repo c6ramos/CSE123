@@ -248,9 +248,9 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     start = clock();
                     memcpy(fileBuf, messageBuffer+4, recvlen-4);
                     fwrite(fileBuf, 1, recvlen-4, myFile);
-                    fprintf("C: Received Block #%d of Data\n", currSequenceNumber);
+                    printf("C: Received Block #%d of Data\n", currSequenceNumber);
                     sendACK(socketNumber, senderAddress, addrLength, (char)currSequenceNumber);
-                    fprintf("C: Sending ACK #%d\n", currSequenceNumber);
+                    printf("C: Sending ACK #%d\n", currSequenceNumber);
                     currSequenceNumber = nextSequenceNum( currSequenceNumber);
                     break;
                 default:
@@ -266,7 +266,7 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
             sendACK(socketNumber, senderAddress, addrLength, (char)prevSequenceNum(currSequenceNumber));
             retry++;
             start = clock();
-            fprintf("C: Resending ACK #%d\n", prevSequenceNum(currSequenceNumber));
+            printf("C: Resending ACK #%d\n", prevSequenceNum(currSequenceNumber));
         }
     }
     
@@ -309,7 +309,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                             //TODO: Need to check for correct block#
                             acked = 1;
                             retry = RETRYMAX; //Break out of retry loop
-                            fprintf("C: Received ACK #%d\n", currSequenceNumber);
+                            printf("C: Received ACK #%d\n", currSequenceNumber);
                             currSequenceNumber = nextSequenceNum(currSequenceNumber);
                             break;
                         default:
