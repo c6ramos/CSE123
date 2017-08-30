@@ -72,7 +72,8 @@ main(int argc, char **argv)
                 case '1': //RRQ
                     printf("S: Received [Read Request]\n");
                     if (filenameCheck(getFileNameFromRequest(receiveBuffer+2))==1){
-                        //TODO: Filename contains forbidden chars
+                        //Filename contains forbidden chars
+                        printf("Pathnames are forbidden. Please provide a plain filename.\n");
                         return 1;
                     }
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
@@ -84,7 +85,8 @@ main(int argc, char **argv)
                 case '2': //WRQ
                     printf("S: Received [Write Request]\n");
                     if (filenameCheck(getFileNameFromRequest(receiveBuffer+2)) == 1){
-                        //TODO: Filename contains forbidden chars
+                        //Filename contains forbidden chars
+                        printf("Pathnames are forbidden. Please provide a plain filename.\n");
                         return 1;
                     }
                     
@@ -107,7 +109,8 @@ main(int argc, char **argv)
                     break;
                 default:
                     printf("S: Received [Unknown Request]\n");
-                    //TODO: Bad Request, needs to start session with RRQ/WRQ
+                    printf("S: Please start a session by sending a RRW/WRQ.\n");
+                    //Bad Request, needs to start session with RRQ/WRQ
                     break;
             }
             
@@ -248,7 +251,8 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     currSequenceNumber = nextSequenceNum(currSequenceNumber);
                     break;
                 default:
-                    //TODO: Bad response, should be sending me some data
+                    //Bad response, should be sending me some data
+                    printf("S: Received non-DATA packet. Still waiting for DATA packet.\n");
                     break;
             }
         }
@@ -275,7 +279,8 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
         sendBuffer[3] = '0';
         res = fread(sendBuffer + 4, 1, MAXDATASIZE, myFile);
         if (res < 1) {
-            //TODO: EOF and no more data
+            //EOF and no more data
+            printf("S: End of File Reached, terminating connection.\n");
             break;
         }
         retry = 0;
@@ -291,7 +296,9 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                 recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
                 if (recvlen > 0) {
                     if (getSequenceNumber(receiveBuffer) != currSequenceNumber){
-                        //TODO: Wrong sequence number
+                        //Wrong sequence number
+                        printf("S: Received packet with wrong sequence number.\n");
+                        printf("S: Sequence number was #%d, should be #%d.\n", getSequenceNumber(messageBuffer), currSequenceNumber);
                         continue;
                     };
                     switch (getOpcode(receiveBuffer)) {
@@ -302,7 +309,8 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
                             printf("S: Received ACK #%d\n", currSequenceNumber);
                             break;
                         default:
-                            //TODO: Bad response, should be ACK tag
+                            //Bad response, should be ACK tag
+                            printf("S: Received non-ACK packet. Still waiting for ACK packet.\n");
                             break;
                     }
                 }
@@ -314,14 +322,14 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             }
         }
     }
-    //TODO: Finished sending Data, session end notice?
+    //Finished sending Data, session end notice
+    printf("S: Ending Transmission.\n");
 }
 
 
 void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength, char sequenceNumber){
     char messageBuffer[2048];
     setOpcode( messageBuffer, '4'); //Sending ACK packets
-    //TODO: Need to add block #
     setSequenceNumber( messageBuffer, sequenceNumber);
     
     //TODO: Need to error check result of sendto
