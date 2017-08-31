@@ -35,12 +35,14 @@ main(int argc, char **argv)
 {    
     FILE *myFile;
     int res;
-    char fileName[64];
+    
+    
+    char receiveBuffer[2048];
+    char sendBuffer[2048];
     
     struct sockaddr_in myAddress, clientAddress;
     int socketNumber, x, recvlen;
-    char receiveBuffer[2048];
-    char sendBuffer[2048];
+
     socklen_t addrLength = sizeof(clientAddress);
     
     /* Create Socket */
@@ -52,7 +54,7 @@ main(int argc, char **argv)
         exit(0);
     }
     
-    /* Fill in the server's sockaddr struct */
+   //  Fill in the server's sockaddr struct 
     memset((char *) &myAddress, 0, sizeof(myAddress));
     myAddress.sin_family = AF_INET;
     myAddress.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -61,19 +63,21 @@ main(int argc, char **argv)
     /* Binding socket to address and port(Server Only) */
     /* NEED TO ERROR CHECK x */
     x = bind(socketNumber, (struct sockaddr *) &myAddress, sizeof(myAddress));
-    
+/*    
     //Allows recvFrom to timeout
     struct timeval read_timeout;
     read_timeout.tv_sec = TIMEOUT;
     read_timeout.tv_usec = 0;
     setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
-    
+    */
     /* Setup complete ready to receive data */
     for(;;){
-        
+            
+        printf("S: Waiting for requests\n");
         recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) &clientAddress, &addrLength);
         if(recvlen > 0){
             printf("Inside\n");
+            char fileName[64];
             switch(getOpcode(receiveBuffer)){
                 case '1': //RRQ
                     printf("S: Received [Read Request]\n");
@@ -81,10 +85,11 @@ main(int argc, char **argv)
                         
                         //Filename contains forbidden chars
                         printf("Pathnames are forbidden. Please provide a plain filename.\n");
+                        printf("This: %s .\n", getFileNameFromRequest(receiveBuffer+2));
                         break;
                     }
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
-                    myFile = fopen(fileName, "r");
+                    myFile = fopen(fileName, "rb");
                     rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     fclose(myFile);
                     printf("S: File Read Complete\n");
@@ -104,7 +109,7 @@ main(int argc, char **argv)
                     // ACK to signal ready to receive
                     // First ACK of WRQ always block#0
                     sendACK(socketNumber, (struct sockaddr*)&clientAddress, &addrLength, '0');
-                    
+                    printf("S: Sending Write Request ACK\n");
                     //Handles transmitted data
                     wrqHandler(socketNumber, receiveBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     

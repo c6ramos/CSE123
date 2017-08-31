@@ -42,13 +42,14 @@ int main(int argc, char **argv)
     FILE *myFile;
     int res;
 
+    char receiveBuffer[2048];
+    char sendBuffer[2048];
     
     struct sockaddr_in serverAddress;
     struct hostent *hp;
     int socketNumber, x, recvlen, requestReceived;
     socklen_t addrLength = sizeof(serverAddress);
-    char receiveBuffer[2048];
-    char sendBuffer[2048];
+    
     time_t start;
     
     /* Create Socket */
@@ -69,16 +70,16 @@ int main(int argc, char **argv)
     
     /* Fill server sockaddr struct */
     memcpy((void *)&serverAddress.sin_addr, hp->h_addr_list[0], hp->h_length);    
-    
+/*    
     //Allows recvFrom to timeout
     struct timeval read_timeout;
     read_timeout.tv_sec = TIMEOUT;
     read_timeout.tv_usec = 0;
-    setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+    setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);*/
     
     //Check if user input is valid
     if(argc == 3 && filenameCheck(argv[2]) == 0){
-        
+
         //Check if request is a write
         if(strcmp( argv[1], "-w") == 0){
             /* Now can send request */
@@ -104,6 +105,7 @@ int main(int argc, char **argv)
                     }
                     switch(getOpcode(receiveBuffer)){
                         case '4': //ACK received
+                            printf("C: Received WRQ ACK\n");
                             requestReceived = 1;
                             break;
                         default:
@@ -118,7 +120,7 @@ int main(int argc, char **argv)
                 }
             }
             //Request Acknowledged start reading file and start sending data
-            myFile = fopen(fileName, "r");
+            myFile = fopen(fileName, "rb");
             rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&serverAddress, &addrLength, myFile);
             fclose(myFile);
             printf("C: Write Request Complete\n");
