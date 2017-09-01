@@ -4,13 +4,14 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 
 #define SEQUENCEMAX 1
-#define PORT 61003
+#define PORT 54321
 #define MAXDATASIZE 512
 #define TIMEOUT 5
-#define RETRYMAX 10
+#define RETRYMAX 3
 
 void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile );
 
@@ -45,8 +46,13 @@ int main(int argc, char **argv)
     char receiveBuffer[2048];
     char sendBuffer[2048];
     
-    struct sockaddr_in serverAddress;
+    struct sockaddr_in myAddress, serverAddress;
     struct hostent *hp;
+    
+/*
+    char *serverIP = "127.0.0.1";
+*/
+    
     int socketNumber, x, recvlen, requestReceived;
     socklen_t addrLength = sizeof(serverAddress);
     
@@ -61,14 +67,25 @@ int main(int argc, char **argv)
         exit(0);
     }
     /* Fill in the server's sockaddr struct */
-    memset((char *) &serverAddress, 0, sizeof(serverAddress));
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(PORT);
+    memset((char *) &myAddress, 0, sizeof(myAddress));
+    myAddress.sin_family = AF_INET;
+    myAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    myAddress.sin_port = htons(0);
+    
+    if (bind(socketNumber, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
+		perror("bind failed");
+		return 0;
+	}       
+
     
     /* Get server address (Need to check validity)*/
     hp = gethostbyname("localhost");
     
-    /* Fill server sockaddr struct */
+   memset((char *)&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(PORT);
+
+  //   Fill server sockaddr struct 
     memcpy((void *)&serverAddress.sin_addr, hp->h_addr_list[0], hp->h_length);    
     
     //Allows recvFrom to timeout
@@ -84,7 +101,7 @@ int main(int argc, char **argv)
         if(strcmp( argv[1], "-w") == 0){
             /* Now can send request */
             printf("Request sent to server\n");
-            sprintf(fileName, "client/%s", argv[2]);
+            sprintf(fileName, "/clientFiles/%s", argv[2]);
             bzero(sendBuffer, 2048);
             //Set message opcode
             setOpcode(sendBuffer, '2');
@@ -132,7 +149,7 @@ int main(int argc, char **argv)
             
             
             //Destination Path
-            sprintf(fileName, "client/%s", argv[2]);
+            sprintf(fileName, "/clientFiles/%s", argv[2]);
             myFile = fopen(fileName, "w");  
             bzero(sendBuffer, 2048);
             //Set message opcode
@@ -327,7 +344,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             printf("C: Sending data block #%d\n", currSequenceNumber);
             bzero(receiveBuffer, 2048);
             recvlen = 0;
-            recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
+            recvlen = recvfrom(socketNumber, receiveBuffer, 4, 0, (struct sockaddr *) senderAddress, addrLength);
             if (recvlen > 0) {
                 retry = 0;
                 switch (getOpcode(receiveBuffer)) {
@@ -367,7 +384,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
 
 
 void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength, char sequenceNumber){
-    char messageBuffer[2048];
+    char messageBuffer[4];
     setOpcode( messageBuffer, '4'); //Sending ACK packets
     if('0' == sequenceNumber){
         setSequenceNumber( messageBuffer, 0);
@@ -377,6 +394,6 @@ void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLen
     }
     
     //TODO: Need to error check result of sendto
-    sendto(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
+    sendto(socketNumber, messageBuffer, 4, 0, (struct sockaddr *) destAddress, *addrLength);
 }
 
