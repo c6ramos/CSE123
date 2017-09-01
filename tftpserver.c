@@ -39,6 +39,8 @@ main(int argc, char **argv)
     
     char receiveBuffer[2048];
     char sendBuffer[2048];
+    char fileName[64];
+
     
     struct sockaddr_in myAddress, clientAddress;
     int socketNumber, x, recvlen;
@@ -63,49 +65,55 @@ main(int argc, char **argv)
     /* Binding socket to address and port(Server Only) */
     /* NEED TO ERROR CHECK x */
     x = bind(socketNumber, (struct sockaddr *) &myAddress, sizeof(myAddress));
-/*    
+    
     //Allows recvFrom to timeout
     struct timeval read_timeout;
     read_timeout.tv_sec = TIMEOUT;
     read_timeout.tv_usec = 0;
     setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
-    */
+    
     /* Setup complete ready to receive data */
     for(;;){
-            
+        bzero(receiveBuffer, 2048);
+        bzero(sendBuffer, 2048);
+        recvlen = 0;
         printf("S: Waiting for requests\n");
         recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) &clientAddress, &addrLength);
         if(recvlen > 0){
-            printf("Inside\n");
-            char fileName[64];
+            printf("Inside %c\n", getOpcode(receiveBuffer));
             switch(getOpcode(receiveBuffer)){
                 case '1': //RRQ
                     printf("S: Received [Read Request]\n");
-                    if (filenameCheck(getFileNameFromRequest(receiveBuffer+2))==1){
+                    printf("This: %s .\n", (receiveBuffer));
+                    printf("This: %s .\n", getFileNameFromRequest(receiveBuffer));
+                    if (filenameCheck(receiveBuffer+2)==1){
                         
                         //Filename contains forbidden chars
                         printf("Pathnames are forbidden. Please provide a plain filename.\n");
-                        printf("This: %s .\n", getFileNameFromRequest(receiveBuffer+2));
+                        
                         break;
                     }
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
+                    printf("This: %s .\n", fileName);
                     myFile = fopen(fileName, "rb");
+                     printf("open: \n");
                     rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     fclose(myFile);
                     printf("S: File Read Complete\n");
                     break;
                 case '2': //WRQ
                     printf("S: Received [Write Request]\n");
-                    if (filenameCheck(getFileNameFromRequest(receiveBuffer+2)) == 1){
+                    if (filenameCheck(receiveBuffer+2)==1){
                         //Filename contains forbidden chars
                         printf("Pathnames are forbidden. Please provide a plain filename.\n");
                         break;
                     }
                     
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
+                    printf("S: qACK\n");
                     myFile = fopen(fileName, "w");
                     //Need validity check for all fopens
-                    
+                    printf("S: quACK\n");
                     // ACK to signal ready to receive
                     // First ACK of WRQ always block#0
                     sendACK(socketNumber, (struct sockaddr*)&clientAddress, &addrLength, '0');
@@ -240,6 +248,7 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
     //Keep sending message up to RETRYMAX times if there is no response
     while (retry < RETRYMAX){
         recvlen = 0;
+        bzero(messageBuffer, 2048);
         recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
         //If there is data received
         if(recvlen > 0){
@@ -299,6 +308,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
     int recvlen, retry, acked, x, currSequenceNumber = 0;
     int res = MAXDATASIZE;
     while(res == MAXDATASIZE) { //Send Data
+        bzero(sendBuffer, 2048);
         res = fread(sendBuffer + 4, 1, MAXDATASIZE, myFile);
         if (res < 1) {
             //EOF and no more data
@@ -314,6 +324,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             printf("S: Sending block #%d of data\n", currSequenceNumber);
             
             recvlen = 0;
+            bzero(receiveBuffer, 2048);
             recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
             if (recvlen > 0) {
                 retry = 0;
@@ -365,4 +376,5 @@ void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLen
     
     //TODO: Need to error check result of sendto
     sendto(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
+    
 }

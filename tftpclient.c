@@ -70,12 +70,12 @@ int main(int argc, char **argv)
     
     /* Fill server sockaddr struct */
     memcpy((void *)&serverAddress.sin_addr, hp->h_addr_list[0], hp->h_length);    
-/*    
+    
     //Allows recvFrom to timeout
     struct timeval read_timeout;
     read_timeout.tv_sec = TIMEOUT;
     read_timeout.tv_usec = 0;
-    setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);*/
+    setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
     
     //Check if user input is valid
     if(argc == 3 && filenameCheck(argv[2]) == 0){
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
             /* Now can send request */
             printf("Request sent to server\n");
             sprintf(fileName, "client/%s", argv[2]);
-            
+            bzero(sendBuffer, 2048);
             //Set message opcode
             setOpcode(sendBuffer, '2');
             //Set filename in buffer
@@ -96,6 +96,7 @@ int main(int argc, char **argv)
             requestReceived = 0;
             while (requestReceived == 0){
                 recvlen = 0;
+                bzero(receiveBuffer, 2048);
                 recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr*)&serverAddress, &addrLength);
                 if(recvlen > 0){
                     if (getSequenceNumber(receiveBuffer) != '0'){
@@ -129,10 +130,12 @@ int main(int argc, char **argv)
         //If request was a read
         else if(strcmp(argv[1], "-r") == 0){
             
+            printf("Request sent to server: %s\n", argv[2]);
+            
             //Destination Path
             sprintf(fileName, "client/%s", argv[2]);
             myFile = fopen(fileName, "w");  
-            
+            bzero(sendBuffer, 2048);
             //Set message opcode
             setOpcode(sendBuffer, '1');
             //Set filename in buffer
@@ -249,6 +252,7 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
     //Keep sending message up to RETRYMAX times if there is no response
     while (retry < RETRYMAX){
         recvlen = 0;
+        bzero(messageBuffer, 2048);
         recvlen = recvfrom(socketNumber, messageBuffer, 2048, 0, (struct sockaddr*)senderAddress, addrLength);
         //If there is data received
         if(recvlen > 0){
@@ -308,7 +312,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
     int recvlen, retry, acked, x, currSequenceNumber = 0;
     int res = MAXDATASIZE;
     while(res == MAXDATASIZE) { //Send Data
-
+        bzero(sendBuffer, 2048);
         res = fread(sendBuffer + 4, 1, MAXDATASIZE, myFile);
         if (res < 1) {
             //EOF and no more data
@@ -322,7 +326,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             setSequenceNumber(sendBuffer, currSequenceNumber);
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
             printf("C: Sending block #%d of data\n", currSequenceNumber);
-            
+            bzero(receiveBuffer, 2048);
             recvlen = 0;
             recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
             if (recvlen > 0) {
