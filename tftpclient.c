@@ -106,12 +106,7 @@ int main(int argc, char **argv)
                 return 1;
             }
             /* Now can send request */
-<<<<<<< HEAD
-            sprintf(fileName, "client/%s", argv[2]);
-=======
-            printf("Request sent to server\n");
             sprintf(fileName, "/clientFiles/%s", argv[2]);
->>>>>>> b18851a080e6e0809d679df8033cb53c81d2dc14
             bzero(sendBuffer, 2048);
             //Set message opcode
             setOpcode(sendBuffer, '2');
