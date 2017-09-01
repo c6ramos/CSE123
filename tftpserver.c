@@ -317,7 +317,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             
             recvlen = 0;
             bzero(receiveBuffer, 2048);
-            recvlen = recvfrom(socketNumber, receiveBuffer, 4, 0, (struct sockaddr *) senderAddress, addrLength);
+            recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
             if (recvlen > 0) {
                 retry = 0;
                 switch (getOpcode(receiveBuffer)) {

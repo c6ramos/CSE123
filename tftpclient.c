@@ -48,16 +48,12 @@ int main(int argc, char **argv)
     
     struct sockaddr_in myAddress, serverAddress;
     struct hostent *hp;
-<<<<<<< HEAD
     
 /*
     char *serverIP = "127.0.0.1";
 */
     
     int socketNumber, x, recvlen, requestReceived;
-=======
-    int socketNumber, x, recvlen, requestReceived, quit = 0;
->>>>>>> 4a2c0fce80dfcefec0ec4368736e9d11ae256f05
     socklen_t addrLength = sizeof(serverAddress);
     
     time_t start;
@@ -97,20 +93,7 @@ int main(int argc, char **argv)
     read_timeout.tv_sec = TIMEOUT;
     read_timeout.tv_usec = 0;
     setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
-
-    if (argc != 3){
-        printf("Usage: ./tftpclient -r FILENAME to read FILENAME from server.\n");
-        printf("       ./tftpclient -w FILENAME to write FILENAME to server.\n");
-        quit = 1;
-    }
-    if (filenameCheck(argv[2]) == 1){
-        printf("       Filename must be a plain filename. Pathnames are forbidden.\n");
-        quit = 1;
-    }
-    if (quit == 1){
-        return 1;
-    }
-
+    
     //Check if user input is valid
     if(argc == 3 && filenameCheck(argv[2]) == 0){
 
@@ -361,7 +344,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             printf("C: Sending data block #%d\n", currSequenceNumber);
             bzero(receiveBuffer, 2048);
             recvlen = 0;
-            recvlen = recvfrom(socketNumber, receiveBuffer, 4, 0, (struct sockaddr *) senderAddress, addrLength);
+            recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
             if (recvlen > 0) {
                 retry = 0;
                 switch (getOpcode(receiveBuffer)) {
