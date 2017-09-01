@@ -85,21 +85,26 @@ main(int argc, char **argv)
                     if (filenameCheck(receiveBuffer+2)==1){
                         
                         //Filename contains forbidden chars
-                        printf("Pathnames are forbidden. Please provide a plain filename.\n");
+                        printf("S: Pathnames are forbidden. Please provide a plain filename.\n");
                         
                         break;
                     }
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
                     myFile = fopen(fileName, "rb");
+                    if (myFile == NULL){
+                        printf("S: File %s does not exist in the server directory.", receiveBuffer+2);
+                        break;
+                    }
                     rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     fclose(myFile);
                     printf("S: File Read Complete\n");
+
                     break;
                 case '2': //WRQ
                     printf("S: Received [Write Request]\n");
                     if (filenameCheck(receiveBuffer+2)==1){
                         //Filename contains forbidden chars
-                        printf("Pathnames are forbidden. Please provide a plain filename.\n");
+                        printf("S: Pathnames are forbidden. Please provide a plain filename.\n");
                         break;
                     }
                     

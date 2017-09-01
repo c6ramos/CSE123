@@ -95,8 +95,13 @@ int main(int argc, char **argv)
 
         //Check if request is a write
         if(strcmp( argv[1], "-w") == 0){
+            //Request Acknowledged start reading file and start sending data
+            myFile = fopen(fileName, "rb");
+            if (myFile == NULL){
+                printf("C: File %s does not exist in the client directory.", receiveBuffer+2);
+                return 1;
+            }
             /* Now can send request */
-            printf("Request sent to server\n");
             sprintf(fileName, "client/%s", argv[2]);
             bzero(sendBuffer, 2048);
             //Set message opcode
@@ -105,6 +110,8 @@ int main(int argc, char **argv)
             strcpy(sendBuffer+2, argv[2]);
             /* Now send request */
             x = sendto(socketNumber, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr*)&serverAddress, addrLength);
+            printf("C: Request sent to server\n");
+
 
             requestReceived = 0;
             while (requestReceived == 0){
@@ -129,12 +136,10 @@ int main(int argc, char **argv)
                     }
                 }
                 else{
-                    printf("Timed Out: Write request not acknowledged by server.\n");
+                    printf("C Timed Out: Write request not acknowledged by server.\n");
                     return 0;
                 }
             }
-            //Request Acknowledged start reading file and start sending data
-            myFile = fopen(fileName, "rb");
             rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&serverAddress, &addrLength, myFile);
             fclose(myFile);
             printf("C: Write Request Complete\n");
