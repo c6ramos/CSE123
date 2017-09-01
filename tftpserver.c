@@ -5,10 +5,10 @@
 #include <netinet/in.h>
 
 #define SEQUENCEMAX 1
-#define PORT 61003
+#define PORT 12345
 #define MAXDATASIZE 512
 #define TIMEOUT 5
-#define RETRYMAX 10
+#define RETRYMAX 3
 
 void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile );
 
@@ -89,7 +89,7 @@ main(int argc, char **argv)
                         
                         break;
                     }
-                    sprintf(fileName, "server/%s", (receiveBuffer+2));
+                    sprintf(fileName, "/serverFiles/%s", (receiveBuffer+2));
                     myFile = fopen(fileName, "rb");
                     if (myFile == NULL){
                         printf("S: File %s does not exist in the server directory.", receiveBuffer+2);
@@ -108,7 +108,7 @@ main(int argc, char **argv)
                         break;
                     }
                     
-                    sprintf(fileName, "server/%s", (receiveBuffer+2));
+                    sprintf(fileName, "/serverFiles/%s", (receiveBuffer+2));
                     myFile = fopen(fileName, "w");
                     //Need validity check for all fopens
                     // ACK to signal ready to receive
@@ -362,7 +362,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
 
 
 void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength, char sequenceNumber){
-    char messageBuffer[2048];
+    char messageBuffer[4];
     setOpcode( messageBuffer, '4'); //Sending ACK packets
     if('0' == sequenceNumber){
         setSequenceNumber( messageBuffer, 0);
@@ -372,6 +372,6 @@ void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLen
     }
     
     //TODO: Need to error check result of sendto
-    sendto(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
+    sendto(socketNumber, messageBuffer, 4, 0, (struct sockaddr *) destAddress, *addrLength);
     
 }

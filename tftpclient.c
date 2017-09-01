@@ -4,13 +4,14 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 
 #define SEQUENCEMAX 1
-#define PORT 61003
+#define PORT 54321
 #define MAXDATASIZE 512
 #define TIMEOUT 5
-#define RETRYMAX 10
+#define RETRYMAX 3
 
 void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAddress, socklen_t * addrLength, FILE* myFile );
 
@@ -45,9 +46,14 @@ int main(int argc, char **argv)
     char receiveBuffer[2048];
     char sendBuffer[2048];
     
-    struct sockaddr_in serverAddress;
+    struct sockaddr_in myAddress, serverAddress;
     struct hostent *hp;
-    int socketNumber, x, recvlen, requestReceived, quit = 0;
+    
+/*
+    char *serverIP = "127.0.0.1";
+*/
+    
+    int socketNumber, x, recvlen, requestReceived;
     socklen_t addrLength = sizeof(serverAddress);
     
     time_t start;
@@ -61,14 +67,25 @@ int main(int argc, char **argv)
         exit(0);
     }
     /* Fill in the server's sockaddr struct */
-    memset((char *) &serverAddress, 0, sizeof(serverAddress));
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(PORT);
+    memset((char *) &myAddress, 0, sizeof(myAddress));
+    myAddress.sin_family = AF_INET;
+    myAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    myAddress.sin_port = htons(0);
+    
+    if (bind(socketNumber, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
+		perror("bind failed");
+		return 0;
+	}       
+
     
     /* Get server address (Need to check validity)*/
     hp = gethostbyname("localhost");
     
-    /* Fill server sockaddr struct */
+   memset((char *)&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(PORT);
+
+  //   Fill server sockaddr struct 
     memcpy((void *)&serverAddress.sin_addr, hp->h_addr_list[0], hp->h_length);    
     
     //Allows recvFrom to timeout
@@ -76,20 +93,7 @@ int main(int argc, char **argv)
     read_timeout.tv_sec = TIMEOUT;
     read_timeout.tv_usec = 0;
     setsockopt(socketNumber, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
-
-    if (argc != 3){
-        printf("Usage: ./tftpclient -r FILENAME to read FILENAME from server.\n");
-        printf("       ./tftpclient -w FILENAME to write FILENAME to server.\n");
-        quit = 1;
-    }
-    if (filenameCheck(argv[2]) == 1){
-        printf("       Filename must be a plain filename. Pathnames are forbidden.\n");
-        quit = 1;
-    }
-    if (quit == 1){
-        return 1;
-    }
-
+    
     //Check if user input is valid
     if(argc == 3 && filenameCheck(argv[2]) == 0){
 
@@ -102,7 +106,12 @@ int main(int argc, char **argv)
                 return 1;
             }
             /* Now can send request */
+<<<<<<< HEAD
             sprintf(fileName, "client/%s", argv[2]);
+=======
+            printf("Request sent to server\n");
+            sprintf(fileName, "/clientFiles/%s", argv[2]);
+>>>>>>> b18851a080e6e0809d679df8033cb53c81d2dc14
             bzero(sendBuffer, 2048);
             //Set message opcode
             setOpcode(sendBuffer, '2');
@@ -150,7 +159,7 @@ int main(int argc, char **argv)
             
             
             //Destination Path
-            sprintf(fileName, "client/%s", argv[2]);
+            sprintf(fileName, "/clientFiles/%s", argv[2]);
             myFile = fopen(fileName, "w");  
             bzero(sendBuffer, 2048);
             //Set message opcode
@@ -385,7 +394,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
 
 
 void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLength, char sequenceNumber){
-    char messageBuffer[2048];
+    char messageBuffer[4];
     setOpcode( messageBuffer, '4'); //Sending ACK packets
     if('0' == sequenceNumber){
         setSequenceNumber( messageBuffer, 0);
@@ -395,6 +404,6 @@ void sendACK(int socketNumber, struct sockaddr* destAddress, socklen_t * addrLen
     }
     
     //TODO: Need to error check result of sendto
-    sendto(socketNumber, messageBuffer, 2048, 0, (struct sockaddr *) destAddress, *addrLength);
+    sendto(socketNumber, messageBuffer, 4, 0, (struct sockaddr *) destAddress, *addrLength);
 }
 
