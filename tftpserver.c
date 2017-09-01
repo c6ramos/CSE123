@@ -77,15 +77,11 @@ main(int argc, char **argv)
         bzero(receiveBuffer, 2048);
         bzero(sendBuffer, 2048);
         recvlen = 0;
-        printf("S: Waiting for requests\n");
         recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) &clientAddress, &addrLength);
         if(recvlen > 0){
-            printf("Inside %c\n", getOpcode(receiveBuffer));
             switch(getOpcode(receiveBuffer)){
                 case '1': //RRQ
                     printf("S: Received [Read Request]\n");
-                    printf("This: %s .\n", (receiveBuffer));
-                    printf("This: %s .\n", getFileNameFromRequest(receiveBuffer));
                     if (filenameCheck(receiveBuffer+2)==1){
                         
                         //Filename contains forbidden chars
@@ -94,9 +90,7 @@ main(int argc, char **argv)
                         break;
                     }
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
-                    printf("This: %s .\n", fileName);
                     myFile = fopen(fileName, "rb");
-                     printf("open: \n");
                     rrqHandler(socketNumber, receiveBuffer, sendBuffer, (struct sockaddr*)&clientAddress, &addrLength, myFile);
                     fclose(myFile);
                     printf("S: File Read Complete\n");
@@ -110,10 +104,8 @@ main(int argc, char **argv)
                     }
                     
                     sprintf(fileName, "server/%s", (receiveBuffer+2));
-                    printf("S: qACK\n");
                     myFile = fopen(fileName, "w");
                     //Need validity check for all fopens
-                    printf("S: quACK\n");
                     // ACK to signal ready to receive
                     // First ACK of WRQ always block#0
                     sendACK(socketNumber, (struct sockaddr*)&clientAddress, &addrLength, '0');
@@ -272,7 +264,7 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     else{
                         currSequenceNumber = 1;
                     }
-                    printf("S: Received Block #%d of Data\n", currSequenceNumber);
+                    printf("S: Received Data Block #%d\n", currSequenceNumber);
                     sendACK(socketNumber, senderAddress, addrLength, '0'+ currSequenceNumber);
                     printf("S: Sending ACK #%d\n", currSequenceNumber);
                     currSequenceNumber = nextSequenceNum(currSequenceNumber);
@@ -321,7 +313,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             setOpcode(sendBuffer, '3'); //Sending DATA packets
             setSequenceNumber(sendBuffer, currSequenceNumber);
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
-            printf("S: Sending block #%d of data\n", currSequenceNumber);
+            printf("S: Sending data block #%d\n", currSequenceNumber);
             
             recvlen = 0;
             bzero(receiveBuffer, 2048);

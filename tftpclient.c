@@ -130,7 +130,6 @@ int main(int argc, char **argv)
         //If request was a read
         else if(strcmp(argv[1], "-r") == 0){
             
-            printf("Request sent to server: %s\n", argv[2]);
             
             //Destination Path
             sprintf(fileName, "client/%s", argv[2]);
@@ -142,7 +141,7 @@ int main(int argc, char **argv)
             strcpy(sendBuffer+2, argv[2]);
             /* Now can send request */
             sendto(socketNumber, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr*)&serverAddress, addrLength);
-            printf("Read request sent to server\n");
+            printf("C: Read request sent to server\n");
             
             //Handles transmitted data
             wrqHandler(socketNumber, receiveBuffer, (struct sockaddr*)&serverAddress, &addrLength, myFile);
@@ -276,7 +275,7 @@ void wrqHandler(int socketNumber, char* messageBuffer, struct sockaddr* senderAd
                     else{
                         currSequenceNumber = 1;
                     }
-                    printf("C: Received Block #%d of Data\n", currSequenceNumber);
+                    printf("C: Received Data Block #%d\n", currSequenceNumber);
                     sendACK(socketNumber, senderAddress, addrLength, '0'+currSequenceNumber);
                     printf("C: Sending ACK #%d\n", currSequenceNumber);
                     currSequenceNumber = nextSequenceNum(currSequenceNumber);
@@ -325,7 +324,7 @@ void rrqHandler(int socketNumber, char* receiveBuffer, char* sendBuffer, struct 
             setOpcode(sendBuffer, '3'); //Sending DATA packets
             setSequenceNumber(sendBuffer, currSequenceNumber);
             x = sendto(socketNumber, sendBuffer, res+4, 0, (struct sockaddr *) senderAddress, *addrLength);
-            printf("C: Sending block #%d of data\n", currSequenceNumber);
+            printf("C: Sending data block #%d\n", currSequenceNumber);
             bzero(receiveBuffer, 2048);
             recvlen = 0;
             recvlen = recvfrom(socketNumber, receiveBuffer, 2048, 0, (struct sockaddr *) senderAddress, addrLength);
